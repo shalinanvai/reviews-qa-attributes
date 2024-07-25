@@ -29,12 +29,12 @@ OPENAI_API_KEY = openai_api_key
 # Ask the user for a question via `st.text_area`.
 num_asins_load = st.text_area(
     "How many ASINs to load from the index? (This should be between 10 and 100. This will affect the processing speed.)",
-    value=50,
+    value=100,
 )
 
 num_asins_retrieve = st.text_area(
     "How many ASINs to retrieve per query? (This should be between 1 and 20. This will affect the processing speed.)",
-    value=5,
+    value=10,
 )
 
 queries = []
@@ -342,12 +342,14 @@ if num_asins_load and num_asins_retrieve and question:
 
     from llama_index.core import StorageContext, load_index_from_storage
 
-    vector_index = dict()
-    for key in docs:
-        if key not in entire_json:
-            continue
-        documents_key = doc_dict[key]
-        index_key = VectorStoreIndex.from_documents(documents_key)
+vector_index = dict()
+for key in docs.keys():
+    if key not in entire_json:
+        continue
+
+    if os.path.exists("./vectors/" + key + "_VECTORS"):
+        storage_context = StorageContext.from_defaults(persist_dir="./vectors/" + key + "_VECTORS")
+        index_key = load_index_from_storage(storage_context)
         vector_index[key] = index_key
 
     query_engine_vectors = dict()
@@ -357,7 +359,7 @@ if num_asins_load and num_asins_retrieve and question:
             query_engine_key_vector = vector_index[key].as_query_engine(
                 response_mode="tree_summarize",
                 max_knowledge_sequence=500,
-                similarity_top_k=50,
+                similarity_top_k=10,
                 )
 
             query_engine_vectors[key] = query_engine_key_vector
