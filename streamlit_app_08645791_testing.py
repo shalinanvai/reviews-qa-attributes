@@ -272,25 +272,6 @@ if num_asins_load and num_asins_retrieve and question:
     import json
     import statistics
     import random
-    """
-    system_message = get_system_message()
-    count = 0
-    def create_kg(docs):
-        entire_json_key = []
-        count+=1
-        text = docs
-        entire_prompt_three_step = create_entire_prompt_three_step(system_message, text)
-        completed_text_fine_tuned_model = completion(entire_prompt_three_step, model_test_2)
-        print(count)
-        print(completed_text_fine_tuned_model)
-        try:
-            js = json.loads(completed_text_fine_tuned_model)
-            entire_json_key.extend(js)
-        except:
-            print("Could not load json from this chunk. Ignoring!")
-
-        return entire_json_key
-    """
     count = 0
     entire_json = dict()
     for key in docs:
