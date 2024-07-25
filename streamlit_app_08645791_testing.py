@@ -343,7 +343,7 @@ if num_asins_load and num_asins_retrieve and question:
     from llama_index.core import StorageContext, load_index_from_storage
 
 vector_index = dict()
-for key in docs.keys():
+for key in docs:
     if key not in entire_json:
         continue
 
