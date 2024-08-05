@@ -37,14 +37,11 @@ num_asins_retrieve = st.text_area(
     value=10,
 )
 
-queries = []
 # Ask the user for a question viaß `st.text_area`.
 question = st.text_area(
     "Now ask a question!  \ne.g. Based on the reviews, what brain supplements do you recommend?  \ne.g. What are the benefits of taking vitamin supplements?  \ne.g. What are some positive reviews on brain supplements?  \ne.g. What do the reviews say about the benefits of taking Zinc supplements?  \n",
     value="Based on the reviews, what brain supplements do you recommend?"
 )
-
-queries.append(question)
 
 if num_asins_load and num_asins_retrieve and question:
     __import__('pysqlite3')
@@ -171,10 +168,10 @@ if num_asins_load and num_asins_retrieve and question:
         chroma_client = chromadb.Client()
         collection = chroma_client.get_or_create_collection(name=key)
         doc_texts = docs[key]
-        collection.add(
+        """collection.add(
             documents=[doc_texts],
             ids=[str(hash(t)) for t in [doc_texts]]
-        )
+        )"""
         db_chroma[key] = collection
 
     import chromadb
@@ -188,10 +185,10 @@ if num_asins_load and num_asins_retrieve and question:
 
     chroma_client = chromadb.Client()
     collection_titles = chroma_client.get_or_create_collection(name="review_titles_new_250_0_1_3_4")
-    collection_titles.add(
+    """collection_titles.add(
         documents=titles,
         ids=ids
-    )
+    )"""
 
     titles = None
     ids = None
@@ -365,63 +362,62 @@ for key in docs:
             query_engine_vectors[key] = query_engine_key_vector
 
     res_str = ""
-    for val in queries:
-        results = collection_titles.query(
-            query_texts=[val], # Chroma will embed this for you
-            n_results=int(num_asins_retrieve) # how many results to return
+    results = collection_titles.query(
+        query_texts=[val], # Chroma will embed this for you
+        n_results=int(num_asins_retrieve) # how many results to return
+    )
+
+    titles = []
+    asins = []
+    for title in results["documents"][0]:
+        if title in title_to_asin:
+            asin = title_to_asin[title]
+            if asin in entire_json:
+                asins.append(asin)
+
+    print("*********************")
+    print("Query: " + val)
+    print("")
+    count = 0
+    en_rag = dict()
+    en_vector = dict()
+
+    for en in asins:
+        q = val
+        count+=1
+        triples_str_vectors = ""
+        if en in query_engine_vectors:
+            response = query_engine_vectors[en].query(q)
+            triples_str_vectors = str(response)
+
+        en_vector[en] = triples_str_vectors
+
+        query = q
+        docs_rag = db_chroma[en].query(
+            query_texts=[q], # Chroma will embed this for you
+            n_results=5 # how many results to return
         )
 
-        titles = []
-        asins = []
-        for title in results["documents"][0]:
-            if title in title_to_asin:
-                asin = title_to_asin[title]
-                if asin in entire_json:
-                    asins.append(asin)
-
-        print("*********************")
-        print("Query: " + val)
-        print("")
-        count = 0
-        en_rag = dict()
-        en_vector = dict()
-
-        for en in asins:
-            q = val
-            count+=1
-            triples_str_vectors = ""
-            if en in query_engine_vectors:
-                response = query_engine_vectors[en].query(q)
-                triples_str_vectors = str(response)
-
-            en_vector[en] = triples_str_vectors
-
-            query = q
-            docs_rag = db_chroma[en].query(
-                query_texts=[q], # Chroma will embed this for you
-                n_results=5 # how many results to return
-            )
-
-            rag_text = ""
-            for rag_doc in docs_rag["documents"][0]:
-                rag_text = rag_text + "\n\n" + rag_doc
-
-            en_rag[en] = rag_text
-
         rag_text = ""
-        vector_text = ""
-        for key in en_rag.keys():
-            rag = en_rag[key]
-            vec = en_vector[key]
-            rag_text_en = f"""The following document chunks are only for the entity {key}.\n
-            {rag}
-            """
-            rag_text = rag_text + "\n\n" + rag_text_en
+        for rag_doc in docs_rag["documents"][0]:
+            rag_text = rag_text + "\n\n" + rag_doc
 
-            vector_en = f"""The following texts, extracted from a vector store, are only for the entity {key}.\n
-            {vec}
-            """
-            vector_text = vector_text + "\n\n" + vector_en
+        en_rag[en] = rag_text
+
+    rag_text = ""
+    vector_text = ""
+    for key in en_rag.keys():
+        rag = en_rag[key]
+        vec = en_vector[key]
+        rag_text_en = f"""The following document chunks are only for the entity {key}.\n
+        {rag}
+        """
+        rag_text = rag_text + "\n\n" + rag_text_en
+
+        vector_en = f"""The following texts, extracted from a vector store, are only for the entity {key}.\n
+        {vec}
+        """
+        vector_text = vector_text + "\n\n" + vector_en
 
         query_prompt = get_query_prompt(val, rag_text, vector_text)
         system_prompt = get_query_system_prompt()
